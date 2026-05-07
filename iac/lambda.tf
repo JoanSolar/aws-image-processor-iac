@@ -1,34 +1,8 @@
-# Instalar dependencias de upload-lambda
-resource "null_resource" "upload_deps" {
-  triggers = {
-    package_json = filemd5("${path.module}/../src/upload-lambda/package.json")
-  }
-
-  provisioner "local-exec" {
-    command     = "cd ${path.module}/../src/upload-lambda && npm install"
-    interpreter = ["PowerShell", "-Command"]
-  }
-}
-
-# Instalar dependencias de crop-lambda (sharp para Linux)
-resource "null_resource" "crop_deps" {
-  triggers = {
-    package_json = filemd5("${path.module}/../src/crop-lambda/package.json")
-  }
-
-  provisioner "local-exec" {
-    command     = "cd ${path.module}/../src/crop-lambda && npm install --os=linux --cpu=x64 sharp"
-    interpreter = ["PowerShell", "-Command"]
-  }
-}
-
 # Zip de upload-lambda
 data "archive_file" "upload_lambda" {
   type        = "zip"
   source_dir  = "${path.module}/../src/upload-lambda"
   output_path = "${path.module}/../src/upload-lambda/upload-lambda.zip"
-
-  depends_on = [null_resource.upload_deps]
 }
 
 # Zip de crop-lambda
@@ -36,8 +10,6 @@ data "archive_file" "crop_lambda" {
   type        = "zip"
   source_dir  = "${path.module}/../src/crop-lambda"
   output_path = "${path.module}/../src/crop-lambda/crop-lambda.zip"
-
-  depends_on = [null_resource.crop_deps]
 }
 
 # Función upload-lambda
@@ -91,8 +63,8 @@ resource "aws_lambda_function" "crop" {
 
   environment {
     variables = {
-      S3_BUCKET         = aws_s3_bucket.images.bucket
-      PROCESSED_PREFIX  = "processed/"
+      S3_BUCKET        = aws_s3_bucket.images.bucket
+      PROCESSED_PREFIX = "processed/"
     }
   }
 
@@ -118,8 +90,8 @@ resource "aws_lambda_function" "crop" {
 
 # Trigger: SQS → crop-lambda
 resource "aws_lambda_event_source_mapping" "sqs_crop" {
-  event_source_arn                   = aws_sqs_queue.main.arn
-  function_name                      = aws_lambda_function.crop.arn
-  batch_size                         = 5
-  function_response_types            = ["ReportBatchItemFailures"]
+  event_source_arn        = aws_sqs_queue.main.arn
+  function_name           = aws_lambda_function.crop.arn
+  batch_size              = 5
+  function_response_types = ["ReportBatchItemFailures"]
 }
