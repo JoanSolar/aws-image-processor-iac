@@ -1,5 +1,5 @@
 const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
-const sharp = require("sharp");
+const Jimp = require("jimp");
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 
@@ -8,7 +8,6 @@ exports.handler = async (event) => {
 
   for (const record of event.Records) {
     try {
-      // Parsear mensaje SQS
       const body = JSON.parse(record.body);
       const s3Event = body.Records[0];
 
@@ -17,7 +16,6 @@ exports.handler = async (event) => {
 
       console.log(`Procesando imagen: ${sourceKey}`);
 
-      // Descargar imagen original desde S3
       const getCommand = new GetObjectCommand({
         Bucket: sourceBucket,
         Key: sourceKey,
@@ -26,30 +24,34 @@ exports.handler = async (event) => {
       const s3Response = await s3.send(getCommand);
       const imageBuffer = await streamToBuffer(s3Response.Body);
 
-      // Crear máscara circular SVG
-      const circleMask = Buffer.from(
-        `<svg width="40" height="40">
-          <circle cx="20" cy="20" r="20" fill="white"/>
-        </svg>`
-      );
+      const image = await Jimp.read(imageBuffer);
+      image.resize(40, 40);
 
-      // Procesar imagen: 40x40, recorte circular, PNG con transparencia
-      const processedImage = await sharp(imageBuffer)
-        .resize(40, 40, { fit: "cover", position: "center" })
-        .composite([{ input: circleMask, blend: "dest-in" }])
-        .png()
-        .toBuffer();
+      const size = 40;
+      const mask = new Jimp(size, size, 0x00000000);
 
-      // Generar key de destino en processed/
+      for (let x = 0; x < size; x++) {
+        for (let y = 0; y < size; y++) {
+          const dx = x - size / 2;
+          const dy = y - size / 2;
+          if (dx * dx + dy * dy <= (size / 2) * (size / 2)) {
+            mask.setPixelColor(0xffffffff, x, y);
+          }
+        }
+      }
+
+      image.mask(mask, 0, 0);
+
+      const processedBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
+
       const filename = sourceKey.split("/").pop().split(".")[0];
       const destKey = `${process.env.PROCESSED_PREFIX}${filename}_circular.png`;
 
-      // Subir imagen procesada a S3
       await s3.send(
         new PutObjectCommand({
           Bucket: sourceBucket,
           Key: destKey,
-          Body: processedImage,
+          Body: processedBuffer,
           ContentType: "image/png",
         })
       );
@@ -60,7 +62,7 @@ exports.handler = async (event) => {
     } catch (error) {
       console.error("Error procesando registro:", error);
       results.push({ status: "error", error: error.message });
-      throw error; // Permite que SQS reintente
+      throw error;
     }
   }
 
