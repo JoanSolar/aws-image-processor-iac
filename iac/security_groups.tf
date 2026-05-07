@@ -1,6 +1,6 @@
 # Security Group para upload-lambda
 resource "aws_security_group" "upload_lambda" {
-  name        = "sg-upload-lambda-${terraform.workspace}"
+  name        = "upload-lambda-sg-${terraform.workspace}"
   description = "SG for upload lambda - no inbound, outbound 443 only"
   vpc_id      = aws_vpc.main.id
 
@@ -13,14 +13,14 @@ resource "aws_security_group" "upload_lambda" {
   }
 
   tags = {
-    Name        = "sg-upload-lambda-${terraform.workspace}"
+    Name        = "upload-lambda-sg-${terraform.workspace}"
     Environment = terraform.workspace
   }
 }
 
 # Security Group para crop-lambda
 resource "aws_security_group" "crop_lambda" {
-  name        = "sg-crop-lambda-${terraform.workspace}"
+  name        = "crop-lambda-sg-${terraform.workspace}"
   description = "SG for crop lambda - no inbound, outbound 443 only"
   vpc_id      = aws_vpc.main.id
 
@@ -33,14 +33,14 @@ resource "aws_security_group" "crop_lambda" {
   }
 
   tags = {
-    Name        = "sg-crop-lambda-${terraform.workspace}"
+    Name        = "crop-lambda-sg-${terraform.workspace}"
     Environment = terraform.workspace
   }
 }
 
 # Security Group para VPC Endpoint de SQS
 resource "aws_security_group" "vpce_sqs" {
-  name        = "sg-vpce-sqs-${terraform.workspace}"
+  name        = "vpce-sqs-sg-${terraform.workspace}"
   description = "SG for SQS VPC endpoint"
   vpc_id      = aws_vpc.main.id
 
@@ -68,7 +68,7 @@ resource "aws_security_group" "vpce_sqs" {
   }
 
   tags = {
-    Name        = "sg-vpce-sqs-${terraform.workspace}"
+    Name        = "vpce-sqs-sg-${terraform.workspace}"
     Environment = terraform.workspace
   }
 }
